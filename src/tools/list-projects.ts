@@ -8,10 +8,12 @@ export default {
   description: "List all accessible Coverity projects",
 
   register(server: McpServer) {
-    server.tool(
+    server.registerTool(
       "list_projects",
-      "List all Coverity projects the authenticated user can access",
-      {},
+      {
+        description:
+          "List all Coverity projects the authenticated user can access",
+      },
       async () => {
         const client = getCoverityClient();
         const projects = await client.listProjects();

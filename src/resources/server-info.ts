@@ -7,32 +7,37 @@ export default {
   description: "Coverity server connection information",
 
   register(server: McpServer) {
-    server.resource("coverity://server-info", "Coverity server connection info", async () => {
-      const host = process.env["COVERITY_HOST"] ?? "(not configured)";
-      const port = process.env["COVERITY_PORT"] ?? "8443";
-      const ssl = process.env["COVERITY_SSL"] ?? "true";
-      const user = process.env["COVERITY_USER"] ?? "(not configured)";
+    server.registerResource(
+      "server-info",
+      "coverity://server-info",
+      { description: "Coverity server connection info" },
+      async () => {
+        const host = process.env["COVERITY_HOST"] ?? "(not configured)";
+        const port = process.env["COVERITY_PORT"] ?? "8443";
+        const ssl = process.env["COVERITY_SSL"] ?? "true";
+        const user = process.env["COVERITY_USER"] ?? "(not configured)";
 
-      const info = {
-        host,
-        port: parseInt(port, 10),
-        ssl: ssl.toLowerCase() !== "false",
-        user,
-        configured:
-          !!process.env["COVERITY_HOST"] &&
-          !!process.env["COVERITY_USER"] &&
-          !!process.env["COVERITY_AUTH_KEY"],
-      };
+        const info = {
+          host,
+          port: parseInt(port, 10),
+          ssl: ssl.toLowerCase() !== "false",
+          user,
+          configured:
+            !!process.env["COVERITY_HOST"] &&
+            !!process.env["COVERITY_USER"] &&
+            !!process.env["COVERITY_AUTH_KEY"],
+        };
 
-      return {
-        contents: [
-          {
-            uri: "coverity://server-info",
-            mimeType: "application/json",
-            text: JSON.stringify(info, null, 2),
-          },
-        ],
-      };
-    });
+        return {
+          contents: [
+            {
+              uri: "coverity://server-info",
+              mimeType: "application/json",
+              text: JSON.stringify(info, null, 2),
+            },
+          ],
+        };
+      }
+    );
   },
 } satisfies RegisterableModule;

@@ -10,14 +10,17 @@ export default {
     "Get detailed information about a specific Coverity defect including event path and triage data",
 
   register(server: McpServer) {
-    server.tool(
+    server.registerTool(
       "get_issue_details",
-      "Get full details for a Coverity defect by CID, including the event trace (code path that leads to the defect), triage information, and file/line details useful for resolving the issue.",
       {
-        cid: z.number().int().describe("The Coverity Issue ID (CID)"),
-        streamId: z
-          .string()
-          .describe("The stream name or ID containing the issue"),
+        description:
+          "Get full details for a Coverity defect by CID, including the event trace (code path that leads to the defect), triage information, and file/line details useful for resolving the issue.",
+        inputSchema: {
+          cid: z.number().int().describe("The Coverity Issue ID (CID)"),
+          streamId: z
+            .string()
+            .describe("The stream name or ID containing the issue"),
+        },
       },
       async ({ cid, streamId }) => {
         const client = getCoverityClient();

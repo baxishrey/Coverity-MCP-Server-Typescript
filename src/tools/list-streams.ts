@@ -9,14 +9,17 @@ export default {
   description: "List Coverity streams, optionally filtered by project name",
 
   register(server: McpServer) {
-    server.tool(
+    server.registerTool(
       "list_streams",
-      "List Coverity streams. Optionally filter by project name.",
       {
-        projectName: z
-          .string()
-          .optional()
-          .describe("Filter streams by project name"),
+        description:
+          "List Coverity streams. Optionally filter by project name.",
+        inputSchema: {
+          projectName: z
+            .string()
+            .optional()
+            .describe("Filter streams by project name"),
+        },
       },
       async ({ projectName }) => {
         const client = getCoverityClient();
