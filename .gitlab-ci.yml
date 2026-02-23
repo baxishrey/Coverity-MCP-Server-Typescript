@@ -1,0 +1,31 @@
+default:
+  image: node:20
+
+stages:
+  - build
+  - release
+
+build:
+  stage: build
+  script:
+    - npm ci
+    - npm run build
+    - npm run lint
+  artifacts:
+    paths:
+      - build/
+    expire_in: 1 hour
+
+release:
+  stage: release
+  dependencies:
+    - build
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main" && $CI_PIPELINE_SOURCE != "merge_request_event"'
+  script:
+    - git config user.name "semantic-release"
+    - git config user.email "semantic-release@${CI_SERVER_HOST}"
+    - git remote set-url origin "https://oauth2:${GITLAB_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git"
+    - echo "//artifactory.mycompany.com/artifactory/api/npm/npm-releases/:_authToken=${ARTIFACTORY_NPM_TOKEN}" >> .npmrc
+    - npm ci
+    - npx semantic-release

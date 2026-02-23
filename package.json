@@ -1,11 +1,18 @@
 {
-  "name": "coverity-mcp-server",
+  "name": "@mcp/coverity",
   "version": "1.0.0",
   "description": "MCP server for Coverity Connect static analysis defect management",
   "type": "module",
   "main": "build/index.js",
   "bin": {
-    "coverity-mcp-server": "build/index.js"
+    "coverity": "build/index.js"
+  },
+  "files": [
+    "build",
+    "README.md"
+  ],
+  "publishConfig": {
+    "registry": "https://artifactory.mycompany.com/artifactory/api/npm/npm-releases/"
   },
   "engines": {
     "node": ">=20.11.0"
@@ -27,7 +34,14 @@
   },
   "devDependencies": {
     "@types/node": "22.19.10",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "semantic-release": "^24.2.3",
+    "@semantic-release/commit-analyzer": "^13.0.1",
+    "@semantic-release/release-notes-generator": "^14.0.3",
+    "@semantic-release/changelog": "^6.0.3",
+    "@semantic-release/npm": "^12.0.1",
+    "@semantic-release/git": "^10.0.1",
+    "@semantic-release/gitlab": "^13.2.4"
   },
   "overrides": {
     "ajv": "8.17.1",
