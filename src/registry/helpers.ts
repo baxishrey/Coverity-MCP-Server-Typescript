@@ -36,7 +36,7 @@ export function getModulePatterns(): string[] {
 
 export async function findModuleFiles(): Promise<string[]> {
   const patterns = getModulePatterns();
-  return fg(patterns, { absolute: true });
+  return fg(patterns, { absolute: true, ignore: ['**/*.d.ts'] });
 }
 
 export async function loadModule(filePath: string): Promise<unknown> {
