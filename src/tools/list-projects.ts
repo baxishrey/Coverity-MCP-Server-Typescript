@@ -25,7 +25,7 @@ export default {
         }
 
         const summary = projects.map((p) => ({
-          name: p.id?.name ?? p.projectKey,
+          name: p.name,
           key: p.projectKey,
           description: p.description ?? "",
           streams: p.streams?.map((s) => s.name) ?? [],

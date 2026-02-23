@@ -39,10 +39,10 @@ export default {
         }
 
         const summary = streams.map((s) => ({
-          name: s.id?.name,
+          name: s.name,
           language: s.language ?? "unknown",
           description: s.description ?? "",
-          project: s.primaryProjectId?.name ?? "",
+          project: s.primaryProjectName ?? "",
         }));
 
         return {

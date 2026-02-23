@@ -16,7 +16,8 @@
     "start:http": "TRANSPORT=http node build/index.js",
     "dev": "node --experimental-strip-types src/index.ts",
     "test": "node --experimental-strip-types --test tests/**/*.test.ts",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "inspect": "npm run build && npx @modelcontextprotocol/inspector node build/index.js"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.20.2",

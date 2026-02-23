@@ -17,7 +17,7 @@ export default {
         inputSchema: {
           streamId: z
             .string()
-            .describe("The stream name or ID to search in"),
+            .describe("The project name to search in (maps to the project filter in the v2 API)"),
           checker: z
             .string()
             .optional()
