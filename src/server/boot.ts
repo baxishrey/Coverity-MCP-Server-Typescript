@@ -21,7 +21,7 @@ async function bootStdio(): Promise<void> {
 
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  logger.info(TAG, `server running on stdio (Coverity host: ${process.env["COVERITY_HOST"] ?? "unset"})`);
+  logger.info(TAG, `server running on stdio (host: ${process.env["COVERITY_HOST"] ?? "unset"}, project: ${process.env["COVERITY_PROJECT"] ?? "unset"})`);
 }
 
 async function bootHttp(): Promise<void> {
@@ -56,7 +56,7 @@ async function bootHttp(): Promise<void> {
   });
 
   httpServer.listen(port, () => {
-    logger.info(TAG, `HTTP server listening on port ${port} (Coverity host: ${process.env["COVERITY_HOST"] ?? "unset"})`);
+    logger.info(TAG, `HTTP server listening on port ${port} (host: ${process.env["COVERITY_HOST"] ?? "unset"}, project: ${process.env["COVERITY_PROJECT"] ?? "unset"})`);
     logger.info(TAG, `MCP endpoint: http://localhost:${port}/mcp`);
   });
 }

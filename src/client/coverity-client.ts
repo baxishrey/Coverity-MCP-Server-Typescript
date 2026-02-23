@@ -9,16 +9,18 @@ export interface CoverityConfig {
   ssl: boolean;
   user: string;
   authKey: string;
+  project: string;
 }
 
 export function loadConfigFromEnv(): CoverityConfig {
   const host = process.env["COVERITY_HOST"];
   const user = process.env["COVERITY_USER"];
   const authKey = process.env["COVERITY_AUTH_KEY"];
+  const project = process.env["COVERITY_PROJECT"];
 
-  if (!host || !user || !authKey) {
+  if (!host || !user || !authKey || !project) {
     throw new Error(
-      "Missing required environment variables: COVERITY_HOST, COVERITY_USER, COVERITY_AUTH_KEY"
+      "Missing required environment variables: COVERITY_HOST, COVERITY_USER, COVERITY_AUTH_KEY, COVERITY_PROJECT"
     );
   }
 
@@ -28,6 +30,7 @@ export function loadConfigFromEnv(): CoverityConfig {
     ssl: (process.env["COVERITY_SSL"] ?? "true").toLowerCase() !== "false",
     user,
     authKey,
+    project,
   };
 }
 
@@ -88,6 +91,8 @@ export class CoverityClient {
   private readonly baseUrl: string;
   private readonly authHeader: string;
   private readonly agent?: https.Agent;
+
+  get projectName(): string { return this.config.project; }
 
   constructor(private readonly config: CoverityConfig) {
     const scheme = config.ssl ? "https" : "http";
@@ -210,11 +215,11 @@ export class CoverityClient {
     return JSON.parse(text) as T;
   }
 
-  // GET /api/v2/projects?includeStreams=true  (§19.1.3)
+  // GET /api/v2/projects/{name}?includeStreams=true  (§19.1.2)
   async listProjects(): Promise<CoverityProject[]> {
-    logger.info(TAG, "listProjects()");
+    logger.info(TAG, `listProjects() → fetching configured project "${this.config.project}"`);
     const data = await this.request<{ projects?: CoverityProject[] }>(
-      "/api/v2/projects",
+      `/api/v2/projects/${encodeURIComponent(this.config.project)}`,
       { includeStreams: "true" }
     );
     const projects = data.projects ?? [];
@@ -222,43 +227,31 @@ export class CoverityClient {
     return projects;
   }
 
-  // GET /api/v2/streams  (§26.1.3)
-  // When projectName is given, fetches the project and returns its embedded streams (§19.1.2)
-  async listStreams(projectName?: string): Promise<CoverityStream[]> {
-    logger.info(TAG, `listStreams(projectName=${projectName ?? "*"})`);
-    if (projectName) {
-      const data = await this.request<{
-        projects?: Array<{ streams?: CoverityStream[] }>;
-      }>(`/api/v2/projects/${encodeURIComponent(projectName)}`, {
-        includeStreams: "true",
-      });
-      const streams = data.projects?.[0]?.streams ?? [];
-      logger.info(TAG, `listStreams() → ${streams.length} stream(s) for project "${projectName}"`);
-      return streams;
-    }
-
-    const data = await this.request<{ streams?: CoverityStream[] }>(
-      "/api/v2/streams"
-    );
-    const streams = data.streams ?? [];
+  // GET /api/v2/projects/{name}?includeStreams=true  (§19.1.2)
+  async listStreams(): Promise<CoverityStream[]> {
+    logger.info(TAG, `listStreams() → fetching streams for project "${this.config.project}"`);
+    const data = await this.request<{
+      projects?: Array<{ streams?: CoverityStream[] }>;
+    }>(`/api/v2/projects/${encodeURIComponent(this.config.project)}`, {
+      includeStreams: "true",
+    });
+    const streams = data.projects?.[0]?.streams ?? [];
     logger.info(TAG, `listStreams() → ${streams.length} stream(s)`);
     return streams;
   }
 
   // POST /api/v2/issues/search  (§12.1.3 / §12.1.4)
-  async searchIssues(
-    projectName: string,
-    filters?: {
-      checker?: string;
-      impact?: string;
-      status?: string;
-      limit?: number;
-      offset?: number;
-    }
-  ): Promise<CoverityIssue[]> {
+  async searchIssues(filters?: {
+    checker?: string;
+    impact?: string;
+    status?: string;
+    cid?: number;
+    limit?: number;
+    offset?: number;
+  }): Promise<CoverityIssue[]> {
     logger.info(
       TAG,
-      `searchIssues(project="${projectName}", checker=${filters?.checker ?? "-"}, impact=${filters?.impact ?? "-"}, status=${filters?.status ?? "-"}, limit=${filters?.limit ?? 25}, offset=${filters?.offset ?? 0})`
+      `searchIssues(project="${this.config.project}", checker=${filters?.checker ?? "-"}, impact=${filters?.impact ?? "-"}, status=${filters?.status ?? "-"}, cid=${filters?.cid ?? "-"}, limit=${filters?.limit ?? 25}, offset=${filters?.offset ?? 0})`
     );
     interface IssueSearchResponse {
       offset: number;
@@ -288,7 +281,7 @@ export class CoverityClient {
       {
         columnKey: "project",
         matchMode: "oneOrMoreMatch",
-        matchers: [{ class: "Project", name: projectName, type: "nameMatcher" }],
+        matchers: [{ class: "Project", name: this.config.project, type: "nameMatcher" }],
       },
     ];
 
@@ -311,6 +304,13 @@ export class CoverityClient {
         columnKey: "status",
         matchMode: "oneOrMoreMatch",
         matchers: [{ key: filters.status, type: "keyMatcher" }],
+      });
+    }
+    if (filters?.cid !== undefined) {
+      requestFilters.push({
+        columnKey: "cid",
+        matchMode: "oneOrMoreMatch",
+        matchers: [{ key: String(filters.cid), type: "keyMatcher" }],
       });
     }
 

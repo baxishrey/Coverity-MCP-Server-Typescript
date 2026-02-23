@@ -9,18 +9,15 @@ const TAG = "tool:search_issues";
 export default {
   type: "tool",
   name: "search-issues",
-  description: "Search for defects/issues in a Coverity stream",
+  description: "Search for defects/issues in the configured Coverity project",
 
   register(server: McpServer) {
     server.registerTool(
       "search_issues",
       {
         description:
-          "Search for static analysis defects in a Coverity stream. Returns CID, checker, file, function, impact, and status for each issue.",
+          "Search for static analysis defects in the configured Coverity project. Returns CID, checker, file, function, impact, and status for each issue.",
         inputSchema: {
-          streamId: z
-            .string()
-            .describe("The project name to search in (maps to the project filter in the v2 API)"),
           checker: z
             .string()
             .optional()
@@ -35,6 +32,11 @@ export default {
             .string()
             .optional()
             .describe("Filter by status: New, Triaged, Fixed, Dismissed"),
+          cid: z
+            .number()
+            .int()
+            .optional()
+            .describe("Filter by specific CID (Coverity Issue ID)"),
           limit: z
             .number()
             .int()
@@ -50,27 +52,28 @@ export default {
             .describe("Pagination offset (default 0)"),
         },
       },
-      async ({ streamId, checker, impact, status, limit, offset }) => {
+      async ({ checker, impact, status, cid, limit, offset }) => {
+        const client = getCoverityClient();
         logger.info(
           TAG,
-          `invoked (streamId="${streamId}", checker=${checker ?? "-"}, impact=${impact ?? "-"}, status=${status ?? "-"}, limit=${limit ?? 25}, offset=${offset ?? 0})`
+          `invoked (project="${client.projectName}", checker=${checker ?? "-"}, impact=${impact ?? "-"}, status=${status ?? "-"}, cid=${cid ?? "-"}, limit=${limit ?? 25}, offset=${offset ?? 0})`
         );
-        const client = getCoverityClient();
-        const issues = await client.searchIssues(streamId, {
+        const issues = await client.searchIssues({
           checker,
           impact,
           status,
+          cid,
           limit,
           offset,
         });
 
         if (issues.length === 0) {
-          logger.info(TAG, `returning 0 issues for "${streamId}"`);
+          logger.info(TAG, `returning 0 issues for project "${client.projectName}"`);
           return {
             content: [
               {
                 type: "text",
-                text: `No issues found in stream "${streamId}" with the given filters.`,
+                text: `No issues found in project "${client.projectName}" with the given filters.`,
               },
             ],
           };
@@ -86,12 +89,12 @@ export default {
           function: i.displayFunction,
         }));
 
-        logger.info(TAG, `returning ${issues.length} issue(s) for "${streamId}"`);
+        logger.info(TAG, `returning ${issues.length} issue(s) for project "${client.projectName}"`);
         return {
           content: [
             {
               type: "text",
-              text: `Found ${issues.length} issue(s) in stream "${streamId}":\n\n${JSON.stringify(summary, null, 2)}`,
+              text: `Found ${issues.length} issue(s) in project "${client.projectName}":\n\n${JSON.stringify(summary, null, 2)}`,
             },
           ],
         };

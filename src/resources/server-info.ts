@@ -22,10 +22,12 @@ export default {
           port: parseInt(port, 10),
           ssl: ssl.toLowerCase() !== "false",
           user,
+          project: process.env["COVERITY_PROJECT"] ?? "unset",
           configured:
             !!process.env["COVERITY_HOST"] &&
             !!process.env["COVERITY_USER"] &&
-            !!process.env["COVERITY_AUTH_KEY"],
+            !!process.env["COVERITY_AUTH_KEY"] &&
+            !!process.env["COVERITY_PROJECT"],
         };
 
         return {

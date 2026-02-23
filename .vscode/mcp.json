@@ -1,0 +1,10 @@
+{
+  "servers": {
+    "coverity": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["D:\\Projects\\coverity-mcp-server-typescript\\build\\index.js"]
+    }
+  },
+  "inputs": []
+}

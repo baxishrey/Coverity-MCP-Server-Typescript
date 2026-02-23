@@ -1,4 +1,3 @@
-import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { RegisterableModule } from "../registry/types.js";
 import { getCoverityClient } from "../client/coverity-client.js";
@@ -9,25 +8,20 @@ const TAG = "tool:list_streams";
 export default {
   type: "tool",
   name: "list-streams",
-  description: "List Coverity streams, optionally filtered by project name",
+  description: "List Coverity streams for the configured project",
 
   register(server: McpServer) {
     server.registerTool(
       "list_streams",
       {
         description:
-          "List Coverity streams. Optionally filter by project name.",
-        inputSchema: {
-          projectName: z
-            .string()
-            .optional()
-            .describe("Filter streams by project name"),
-        },
+          "List Coverity streams for the configured project.",
+        inputSchema: {},
       },
-      async ({ projectName }) => {
-        logger.info(TAG, `invoked (projectName=${projectName ?? "*"})`);
+      async () => {
         const client = getCoverityClient();
-        const streams = await client.listStreams(projectName);
+        logger.info(TAG, `invoked (project="${client.projectName}")`);
+        const streams = await client.listStreams();
 
         if (streams.length === 0) {
           logger.info(TAG, "returned 0 streams");
@@ -35,9 +29,7 @@ export default {
             content: [
               {
                 type: "text",
-                text: projectName
-                  ? `No streams found for project "${projectName}".`
-                  : "No streams found.",
+                text: `No streams found for project "${client.projectName}".`,
               },
             ],
           };
