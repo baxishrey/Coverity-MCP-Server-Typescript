@@ -1,4 +1,7 @@
 import https from "node:https";
+import { logger } from "../logger.js";
+
+const TAG = "coverity-api";
 
 export interface CoverityConfig {
   host: string;
@@ -108,6 +111,10 @@ export class CoverityClient {
       }
     }
 
+    const displayUrl = url.pathname + (url.search ? url.search : "");
+    logger.info(TAG, `→ GET ${displayUrl}`);
+    const t0 = Date.now();
+
     const options: RequestInit & { dispatcher?: unknown } = {
       headers: {
         Authorization: this.authHeader,
@@ -120,15 +127,28 @@ export class CoverityClient {
     }
 
     const response = await fetch(url.toString(), options);
+    const elapsed = Date.now() - t0;
 
     if (!response.ok) {
       const body = await response.text().catch(() => "");
+      logger.error(
+        TAG,
+        `← ${response.status} ${response.statusText} GET ${displayUrl} (${elapsed}ms)`,
+        body.slice(0, 500)
+      );
       throw new Error(
         `Coverity API error ${response.status} ${response.statusText}: ${body}`
       );
     }
 
-    return (await response.json()) as T;
+    const text = await response.text();
+    logger.info(
+      TAG,
+      `← ${response.status} ${response.statusText} GET ${displayUrl} (${elapsed}ms, ${text.length} chars)`
+    );
+    logger.debug(TAG, `response body: ${text.slice(0, 1000)}`);
+
+    return JSON.parse(text) as T;
   }
 
   private async post<T>(
@@ -145,6 +165,12 @@ export class CoverityClient {
       }
     }
 
+    const requestBody = JSON.stringify(body);
+    const displayUrl = url.pathname + (url.search ? url.search : "");
+    logger.info(TAG, `→ POST ${displayUrl} (body ${requestBody.length} chars)`);
+    logger.debug(TAG, `request body: ${requestBody.slice(0, 1000)}`);
+    const t0 = Date.now();
+
     const options: RequestInit & { dispatcher?: unknown } = {
       method: "POST",
       headers: {
@@ -152,7 +178,7 @@ export class CoverityClient {
         Accept: "application/json",
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(body),
+      body: requestBody,
     };
 
     if (this.agent) {
@@ -160,42 +186,63 @@ export class CoverityClient {
     }
 
     const response = await fetch(url.toString(), options);
+    const elapsed = Date.now() - t0;
 
     if (!response.ok) {
-      const body = await response.text().catch(() => "");
+      const responseBody = await response.text().catch(() => "");
+      logger.error(
+        TAG,
+        `← ${response.status} ${response.statusText} POST ${displayUrl} (${elapsed}ms)`,
+        responseBody.slice(0, 500)
+      );
       throw new Error(
-        `Coverity API error ${response.status} ${response.statusText}: ${body}`
+        `Coverity API error ${response.status} ${response.statusText}: ${responseBody}`
       );
     }
 
-    return (await response.json()) as T;
+    const text = await response.text();
+    logger.info(
+      TAG,
+      `← ${response.status} ${response.statusText} POST ${displayUrl} (${elapsed}ms, ${text.length} chars)`
+    );
+    logger.debug(TAG, `response body: ${text.slice(0, 1000)}`);
+
+    return JSON.parse(text) as T;
   }
 
   // GET /api/v2/projects?includeStreams=true  (§19.1.3)
   async listProjects(): Promise<CoverityProject[]> {
+    logger.info(TAG, "listProjects()");
     const data = await this.request<{ projects?: CoverityProject[] }>(
       "/api/v2/projects",
       { includeStreams: "true" }
     );
-    return data.projects ?? [];
+    const projects = data.projects ?? [];
+    logger.info(TAG, `listProjects() → ${projects.length} project(s)`);
+    return projects;
   }
 
   // GET /api/v2/streams  (§26.1.3)
   // When projectName is given, fetches the project and returns its embedded streams (§19.1.2)
   async listStreams(projectName?: string): Promise<CoverityStream[]> {
+    logger.info(TAG, `listStreams(projectName=${projectName ?? "*"})`);
     if (projectName) {
       const data = await this.request<{
         projects?: Array<{ streams?: CoverityStream[] }>;
       }>(`/api/v2/projects/${encodeURIComponent(projectName)}`, {
         includeStreams: "true",
       });
-      return data.projects?.[0]?.streams ?? [];
+      const streams = data.projects?.[0]?.streams ?? [];
+      logger.info(TAG, `listStreams() → ${streams.length} stream(s) for project "${projectName}"`);
+      return streams;
     }
 
     const data = await this.request<{ streams?: CoverityStream[] }>(
       "/api/v2/streams"
     );
-    return data.streams ?? [];
+    const streams = data.streams ?? [];
+    logger.info(TAG, `listStreams() → ${streams.length} stream(s)`);
+    return streams;
   }
 
   // POST /api/v2/issues/search  (§12.1.3 / §12.1.4)
@@ -209,6 +256,10 @@ export class CoverityClient {
       offset?: number;
     }
   ): Promise<CoverityIssue[]> {
+    logger.info(
+      TAG,
+      `searchIssues(project="${projectName}", checker=${filters?.checker ?? "-"}, impact=${filters?.impact ?? "-"}, status=${filters?.status ?? "-"}, limit=${filters?.limit ?? 25}, offset=${filters?.offset ?? 0})`
+    );
     interface IssueSearchResponse {
       offset: number;
       totalRows: number;
@@ -274,7 +325,7 @@ export class CoverityClient {
       }
     );
 
-    return (data.rows ?? []).map((row) => {
+    const issues = (data.rows ?? []).map((row) => {
       const flat = Object.fromEntries(row.map(({ key, value }) => [key, value]));
       return {
         cid: parseInt(flat["cid"] ?? "0", 10),
@@ -289,6 +340,11 @@ export class CoverityClient {
         occurrenceCount: parseInt(flat["occurrenceCount"] ?? "0", 10),
       };
     });
+    logger.info(
+      TAG,
+      `searchIssues() → ${issues.length} issue(s) (totalRows=${data.totalRows})`
+    );
+    return issues;
   }
 
   // GET /api/v2/issues/sourceCodeInfo  (§12.1.6)  — events & checker
@@ -298,6 +354,7 @@ export class CoverityClient {
     cid: number,
     streamName: string
   ): Promise<CoverityIssueDetail | null> {
+    logger.info(TAG, `getIssueDetails(cid=${cid}, stream="${streamName}")`);
     interface SourceCodeInfoResponse {
       checkerName?: string;
       domain?: string;
@@ -370,6 +427,32 @@ export class CoverityClient {
       ),
     ]);
 
+    // Log the outcome of each parallel sub-request
+    if (sourceResult.status === "rejected") {
+      logger.error(TAG, `getIssueDetails(cid=${cid}) sourceCodeInfo failed`, sourceResult.reason);
+    } else {
+      logger.info(
+        TAG,
+        `getIssueDetails(cid=${cid}) sourceCodeInfo: checker=${sourceResult.value.checkerName ?? "?"}, occurrences=${sourceResult.value.issueOccurrencesCount ?? "?"}`
+      );
+    }
+    if (triageResult.status === "rejected") {
+      logger.warn(TAG, `getIssueDetails(cid=${cid}) triageHistory unavailable — ${String(triageResult.reason)}`);
+    } else {
+      logger.info(
+        TAG,
+        `getIssueDetails(cid=${cid}) triageHistory: ${triageResult.value.triageHistories?.length ?? 0} record(s)`
+      );
+    }
+    if (searchResult.status === "rejected") {
+      logger.warn(TAG, `getIssueDetails(cid=${cid}) issues/search (display columns) failed — ${String(searchResult.reason)}`);
+    } else {
+      logger.info(
+        TAG,
+        `getIssueDetails(cid=${cid}) issues/search: totalRows=${searchResult.value.totalRows}`
+      );
+    }
+
     // sourceCodeInfo is the primary source — if it fails there's nothing to return
     if (sourceResult.status === "rejected" || !sourceResult.value.checkerName) {
       return null;
@@ -432,7 +515,7 @@ export class CoverityClient {
       }
     }
 
-    return {
+    const detail: CoverityIssueDetail = {
       cid,
       checkerName: displayFields.checkerName ?? sourceData.checkerName ?? "",
       displayType: displayFields.displayType ?? "",
@@ -451,6 +534,11 @@ export class CoverityClient {
       events,
       triage,
     };
+    logger.info(
+      TAG,
+      `getIssueDetails(cid=${cid}) → checker=${detail.checkerName}, impact=${detail.displayImpact}, events=${events.length}`
+    );
+    return detail;
   }
 }
 

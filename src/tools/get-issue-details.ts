@@ -2,6 +2,9 @@ import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { RegisterableModule } from "../registry/types.js";
 import { getCoverityClient } from "../client/coverity-client.js";
+import { logger } from "../logger.js";
+
+const TAG = "tool:get_issue_details";
 
 export default {
   type: "tool",
@@ -23,10 +26,12 @@ export default {
         },
       },
       async ({ cid, streamId }) => {
+        logger.info(TAG, `invoked (cid=${cid}, streamId="${streamId}")`);
         const client = getCoverityClient();
         const detail = await client.getIssueDetails(cid, streamId);
 
         if (!detail) {
+          logger.warn(TAG, `CID ${cid} not found in stream "${streamId}"`);
           return {
             content: [
               {
@@ -66,6 +71,10 @@ export default {
           })),
         };
 
+        logger.info(
+          TAG,
+          `returning detail for CID ${cid}: checker=${result.checker}, impact=${result.impact}, events=${result.events.length}`
+        );
         return {
           content: [
             {

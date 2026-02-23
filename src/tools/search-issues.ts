@@ -2,6 +2,9 @@ import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { RegisterableModule } from "../registry/types.js";
 import { getCoverityClient } from "../client/coverity-client.js";
+import { logger } from "../logger.js";
+
+const TAG = "tool:search_issues";
 
 export default {
   type: "tool",
@@ -48,6 +51,10 @@ export default {
         },
       },
       async ({ streamId, checker, impact, status, limit, offset }) => {
+        logger.info(
+          TAG,
+          `invoked (streamId="${streamId}", checker=${checker ?? "-"}, impact=${impact ?? "-"}, status=${status ?? "-"}, limit=${limit ?? 25}, offset=${offset ?? 0})`
+        );
         const client = getCoverityClient();
         const issues = await client.searchIssues(streamId, {
           checker,
@@ -58,6 +65,7 @@ export default {
         });
 
         if (issues.length === 0) {
+          logger.info(TAG, `returning 0 issues for "${streamId}"`);
           return {
             content: [
               {
@@ -78,6 +86,7 @@ export default {
           function: i.displayFunction,
         }));
 
+        logger.info(TAG, `returning ${issues.length} issue(s) for "${streamId}"`);
         return {
           content: [
             {

@@ -4,6 +4,9 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { autoLoadRegistry } from "../registry/auto-loader.js";
+import { logger } from "../logger.js";
+
+const TAG = "boot";
 
 function createServer(): McpServer {
   return new McpServer({
@@ -18,7 +21,7 @@ async function bootStdio(): Promise<void> {
 
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error("[coverity-mcp] Server running on stdio");
+  logger.info(TAG, `server running on stdio (Coverity host: ${process.env["COVERITY_HOST"] ?? "unset"})`);
 }
 
 async function bootHttp(): Promise<void> {
@@ -53,8 +56,8 @@ async function bootHttp(): Promise<void> {
   });
 
   httpServer.listen(port, () => {
-    console.error(`[coverity-mcp] HTTP server listening on port ${port}`);
-    console.error(`[coverity-mcp] MCP endpoint: http://localhost:${port}/mcp`);
+    logger.info(TAG, `HTTP server listening on port ${port} (Coverity host: ${process.env["COVERITY_HOST"] ?? "unset"})`);
+    logger.info(TAG, `MCP endpoint: http://localhost:${port}/mcp`);
   });
 }
 

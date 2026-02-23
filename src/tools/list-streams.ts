@@ -2,6 +2,9 @@ import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { RegisterableModule } from "../registry/types.js";
 import { getCoverityClient } from "../client/coverity-client.js";
+import { logger } from "../logger.js";
+
+const TAG = "tool:list_streams";
 
 export default {
   type: "tool",
@@ -22,10 +25,12 @@ export default {
         },
       },
       async ({ projectName }) => {
+        logger.info(TAG, `invoked (projectName=${projectName ?? "*"})`);
         const client = getCoverityClient();
         const streams = await client.listStreams(projectName);
 
         if (streams.length === 0) {
+          logger.info(TAG, "returned 0 streams");
           return {
             content: [
               {
@@ -45,6 +50,7 @@ export default {
           project: s.primaryProjectName ?? "",
         }));
 
+        logger.info(TAG, `returning ${summary.length} stream(s)`);
         return {
           content: [
             {
